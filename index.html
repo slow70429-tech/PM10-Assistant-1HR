@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>PM10 一小時雙 Excel 助手 V11 Beta 1</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+:root{
+  --bg:#f4f7fb;
+  --card:#ffffff;
+  --line:#d7e0eb;
+  --text:#142033;
+  --muted:#667085;
+  --accent:#2563eb;
+  --accent2:#1d4ed8;
+  --soft:#eaf1ff;
+  --yellow:#b7791f;
+  --green:#0f9f6e;
+  --danger:#c2414b;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:linear-gradient(180deg,#f8fbff,#eef3f9);
+  color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC",sans-serif
+}
+.wrap{max-width:1120px;margin:auto;padding:20px}
+.title{font-size:27px;font-weight:900;margin:4px 0 6px}
+.sub{color:var(--muted);font-size:14px;margin-bottom:16px}
+.card{
+  background:var(--card);
+  border:1px solid var(--line);
+  border-radius:18px;
+  padding:18px;
+  margin-bottom:16px;
+  box-shadow:0 8px 24px rgba(30,64,175,.08)
+}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.project-card{
+  grid-column:1/-1;
+  background:#f8fbff;
+  border:1px solid #bfd0e5;
+  border-radius:16px;
+  padding:15px
+}
+.project-title{font-size:14px;color:#44556c;font-weight:800;margin-bottom:10px}
+.project-row{display:grid;grid-template-columns:1.3fr .55fr 1fr .25fr .8fr;gap:10px;align-items:end}
+.project-fixed{
+  height:48px;display:flex;align-items:center;justify-content:center;
+  background:#eaf1ff;border:1px solid #b8c9e3;border-radius:11px;
+  font-size:18px;font-weight:900;color:#1e40af
+}
+.dash{font-size:24px;font-weight:900;text-align:center;padding-bottom:8px;color:#64748b}
+label{display:block;color:#52647a;font-size:13px;font-weight:700;margin-bottom:6px}
+input{
+  width:100%;border:1px solid #c5d1df;border-radius:11px;background:#fff;
+  color:#111827;padding:12px;font-size:16px;outline:none
+}
+input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(37,99,235,.12)}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:15px}
+button{
+  border:0;border-radius:12px;padding:12px 18px;font-size:15px;
+  font-weight:900;cursor:pointer
+}
+.primary{background:var(--accent);color:#fff}
+.primary:hover{background:var(--accent2)}
+.secondary{background:#edf3ff;color:#1e3a8a;border:1px solid #c7d5ec}
+.green{background:#20b47a;color:#fff}
+.danger{background:#feecef;color:#9f1239;border:1px solid #fecdd3}
+.status{
+  margin-top:13px;padding:12px;border-radius:11px;background:#f8fafc;
+  border:1px solid #d9e2ec;color:#425466;line-height:1.55;font-size:13px
+}
+.kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:9px;margin-top:13px}
+.kpi{background:#f8fbff;border:1px solid #d7e2f0;border-radius:12px;padding:11px;text-align:center}
+.kpi b{display:block;font-size:18px;color:var(--yellow)}
+.kpi span{font-size:11px;color:var(--muted)}
+.tablebox{overflow:auto;border:1px solid var(--line);border-radius:12px}
+table{border-collapse:collapse;min-width:1300px;width:100%;font-size:12px}
+th,td{border-bottom:1px solid #e2e8f0;padding:9px 10px;white-space:nowrap;text-align:right}
+th{background:#eaf1ff;color:#1e3a5f}
+th:first-child,td:first-child{text-align:left}
+.note{color:#667085;font-size:13px;line-height:1.75}
+.ok{color:var(--green);font-weight:800}
+.warn{color:#b45309;font-weight:800}
+@media(max-width:760px){
+  .grid{grid-template-columns:1fr 1fr}
+  .kpis{grid-template-columns:repeat(2,1fr)}
+  .wrap{padding:10px}
+  .title{font-size:22px}
+}
+@media(max-width:520px){
+  .grid{grid-template-columns:1fr}
+  .project-row{grid-template-columns:1fr .55fr 1fr .2fr .8fr}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="title">PM10 一小時雙 Excel 助手 V11 Beta 1</div>
+  <div class="sub">固定產生一小時一筆資料；只下載空氣 Excel 與天氣 Excel。</div>
+
+  <div class="card">
+    <div class="grid">
+      <div class="project-card">
+        <div class="project-title">專案標號</div>
+        <div class="project-row">
+          <div>
+            <label>專案</label>
+            <input id="project" value="09009" maxlength="5" inputmode="numeric">
+          </div>
+          <div>
+            <label>類別</label>
+            <div class="project-fixed">A / R</div>
+          </div>
+          <div>
+            <label>次數（最多 3 碼）</label>
+            <input id="round" value="001" maxlength="3" inputmode="numeric">
+          </div>
+          <div class="dash">-</div>
+          <div>
+            <label>點位</label>
+            <input id="point" value="01" maxlength="2" inputmode="numeric">
+          </div>
+        </div>
+      </div>
+
+      <div><label>資料日期與時間</label><input id="start" type="datetime-local"></div>
+      <div><label>空氣儀器編號</label><input id="stationId" value="A22113"></div>
+      <div><label>風速儀器編號</label><input id="windInstrumentId" value="B7."></div>
+      <div>
+        <label>快速調整</label>
+        <div class="actions" style="margin-top:0">
+          <button class="secondary" type="button" onclick="incRound()">次數 +1</button>
+          <button class="secondary" type="button" onclick="incPoint()">點位 +1</button>
+        </div>
+      </div>
+
+      <div><label>PM10 最小值（µg/m³）</label><input id="pmMin" type="number" step="0.1" value="30"></div>
+      <div><label>PM10 最大值（µg/m³）</label><input id="pmMax" type="number" step="0.1" value="38"></div>
+      <div><label>流量基準（lpm）</label><input id="flowBase" type="number" step="0.01" value="16.62"></div>
+
+      <div><label>溫度基準值（℃）</label><input id="tempBase" type="number" step="0.1" value="30"></div>
+      <div><label>濕度基準值（%）</label><input id="rhBase" type="number" step="1" value="72"></div>
+      <div><label>氣壓基準值（mmHg）</label><input id="bpBase" type="number" step="0.1" value="756"></div>
+
+      <div><label>風速基準值（m/s）</label><input id="wsBase" type="number" step="0.1" value="2.5"></div>
+      <div><label>風向基準值（度）</label><input id="wdBase" type="number" step="1" value="180"></div>
+      <div><label>偏移設定</label><input value="溫度±0.4／濕度±2／氣壓±0.3／風速±0.2／風向±5" readonly></div>
+    </div>
+
+    <div class="actions">
+      <button class="primary" onclick="generate()">🎲 產生一小時資料</button>
+      <button class="green" onclick="downloadAll()">📦 下載兩個 Excel</button>
+      <button class="secondary" onclick="downloadAirExcel()">空氣 Excel</button>
+      <button class="secondary" onclick="downloadWeatherExcel()">天氣 Excel</button>
+      <button class="danger" onclick="clearData()">清除</button>
+    </div>
+
+    <div id="status" class="status">尚未產生資料。</div>
+
+    <div class="kpis">
+      <div class="kpi"><b id="pmK">—</b><span>PM10 µg/m³</span></div>
+      <div class="kpi"><b id="tK">—</b><span>溫度 ℃</span></div>
+      <div class="kpi"><b id="rhK">—</b><span>濕度 %</span></div>
+      <div class="kpi"><b id="bpK">—</b><span>氣壓 mmHg</span></div>
+      <div class="kpi"><b id="wsK">—</b><span>風速 m/s</span></div>
+      <div class="kpi"><b id="wdK">—</b><span>風向度數</span></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="note">
+      每次固定產生兩個檔案：空氣 Excel、天氣 Excel。<br>
+      專案標號以「09009　A / R　001－01」方式輸入；空氣自動為 XXXXXAXXX-XX，天氣自動為 XXXXXRXXX-XX。<br>
+      空氣與天氣 Excel 欄寬固定為 8.08；空氣完成時間為資料時間加隨機 1～2 分鐘，再加隨機秒數。
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="tablebox">
+      <table><thead><tr id="head"></tr></thead><tbody id="body"></tbody></table>
+    </div>
+  </div>
+</div>
+
+<script>
+const headers=["Time","ConcRT(mg/m3)","ConcHR(mg/m3)","ConcS(mg/m3)","Flow(lpm)","WS(m/s)","WD(Deg)","AT(C)","RH(%)","BP(mmHg)","FT(C)","FRH(%)","Status"];
+let row=null, finishTime=null;
+
+function pad(n){return String(n).padStart(2,"0")}
+function localValue(d){return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:00`}
+function fmtDate(d){return `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`}
+function fmtDateSec(d){return `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`}
+function rnd(a,b){return a+Math.random()*(b-a)}
+function clamp(x,a,b){return Math.max(a,Math.min(b,x))}
+function fixed(x,n){return Number(x).toFixed(n)}
+function trim(x,n){return Number(x).toFixed(n).replace(/\.?0+$/,"")}
+function parseRange(id){
+  const s=document.getElementById(id).value.trim();
+  const m=s.match(/^\s*(-?\d+(?:\.\d+)?)\s*[-~～]\s*(-?\d+(?:\.\d+)?)\s*$/);
+  if(!m) throw new Error(`${id} 範圍格式錯誤，請輸入例如 55-80`);
+  const a=Number(m[1]),b=Number(m[2]);
+  if(b<a) throw new Error(`${id} 最大值不可小於最小值`);
+  return [a,b];
+}
+function startDate(){
+  const d=new Date(document.getElementById("start").value);
+  if(isNaN(d.getTime())) throw new Error("請選擇日期與時間");
+  return d;
+}
+function ensure(){
+  if(!row){alert("請先產生資料。");return false}
+  if(typeof XLSX==="undefined"){alert("Excel 元件尚未載入，請確認網路後重新開啟。");return false}
+  return true;
+}
+function fileStamp(d){return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}`}
+
+function generate(){
+  try{
+    const d=startDate();
+    const pmMin=Number(document.getElementById("pmMin").value);
+    const pmMax=Number(document.getElementById("pmMax").value);
+    const tempBase=Number(document.getElementById("tempBase").value);
+    const rhBase=Number(document.getElementById("rhBase").value);
+    const bpBase=Number(document.getElementById("bpBase").value);
+    const wsBase=Number(document.getElementById("wsBase").value);
+    const wdBase=Number(document.getElementById("wdBase").value);
+    const flowBase=Number(document.getElementById("flowBase").value);
+    if(!Number.isFinite(pmMin)||!Number.isFinite(pmMax)||pmMax<=pmMin) throw new Error("PM10 最大值必須大於最小值");
+    if(![tempBase,rhBase,bpBase,wsBase,wdBase].every(Number.isFinite)) throw new Error("請確認天氣基準值皆為數字");
+
+    const pm=rnd(pmMin,pmMax);
+    const at=tempBase+rnd(-0.4,0.4);
+    const rh=Math.round(clamp(rhBase+rnd(-2,2),0,100));
+    const bp=bpBase+rnd(-0.3,0.3);
+    const ws=Math.max(0,wsBase+rnd(-0.2,0.2));
+    let wd=Math.round(wdBase+rnd(-5,5));
+    wd=((wd%360)+360)%360;
+    const flow=flowBase+rnd(-0.035,0.035);
+    const ft=at+rnd(6,9);
+    const frh=Math.max(10,Math.round(rh-rnd(15,28)));
+
+    row=[
+      fmtDate(d),
+      fixed(pm/1000,4),
+      fixed(Math.max(pmMin,Math.min(pmMax,pm+rnd(-1.2,1.2)))/1000,4),
+      fixed(Math.max(pmMin,Math.min(pmMax,pm+rnd(-2,2)))/1000,4),
+      fixed(flow,2),trim(ws,1),String(wd),trim(at,1),String(rh),
+      trim(bp,1),trim(ft,1),String(frh),"0"
+    ];
+
+    finishTime=new Date(d.getTime());
+    finishTime.setMinutes(finishTime.getMinutes()+(Math.random()<0.5?1:2));
+    finishTime.setSeconds(Math.floor(Math.random()*59)+1);
+
+    render();
+    document.getElementById("status").innerHTML=`<span class="ok">完成：已產生一小時一筆資料。空氣報表時間為 ${fmtDateSec(finishTime)}。</span>`;
+  }catch(e){
+    document.getElementById("status").innerHTML=`<span class="warn">錯誤：${e.message}</span>`;
+    alert(e.message);
+  }
+}
+function render(){
+  document.getElementById("body").innerHTML=row?`<tr>${row.map(v=>`<td>${v}</td>`).join("")}</tr>`:"";
+  if(row){
+    document.getElementById("pmK").textContent=(Number(row[1])*1000).toFixed(1);
+    document.getElementById("tK").textContent=row[7];
+    document.getElementById("rhK").textContent=row[8];
+    document.getElementById("bpK").textContent=row[9];
+    document.getElementById("wsK").textContent=row[5];
+    document.getElementById("wdK").textContent=row[6];
+  }else{
+    ["pmK","tK","rhK","bpK","wsK","wdK"].forEach(id=>document.getElementById(id).textContent="—");
+  }
+}
+
+
+function projectParts(){
+  const project=(document.getElementById("project").value||"").trim();
+  const round=(document.getElementById("round").value||"").trim();
+  const point=(document.getElementById("point").value||"").trim();
+
+  if(!/^\d{5}$/.test(project)) throw new Error("專案代碼必須是 5 位數，例如 06527");
+  if(!/^\d{1,3}$/.test(round)) throw new Error("次數請輸入 1～3 位數");
+  if(!/^\d{1,2}$/.test(point)) throw new Error("點位請輸入 1～2 位數");
+
+  return {
+    project,
+    round:String(Number(round)).padStart(3,"0"),
+    point:String(Number(point)).padStart(2,"0")
+  };
+}
+function airProjectCode(){
+  const p=projectParts();
+  return `${p.project}A${p.round}-${p.point}`;
+}
+function weatherProjectCode(){
+  const p=projectParts();
+  return `${p.project}R${p.round}-${p.point}`;
+}
+function incRound(){
+  const el=document.getElementById("round");
+  let n=parseInt(el.value||"0",10);
+  if(!Number.isFinite(n)) n=0;
+  n=Math.min(999,n+1);
+  el.value=String(n).padStart(3,"0");
+}
+function incPoint(){
+  const el=document.getElementById("point");
+  let n=parseInt(el.value||"0",10);
+  if(!Number.isFinite(n)) n=0;
+  n=Math.min(99,n+1);
+  el.value=String(n).padStart(2,"0");
+}
+
+function airAOA(){
+  const stationId=document.getElementById("stationId").value.trim()||"A22113";
+  return [
+    ["Data Report"],
+    [fmtDateSec(finishTime)],
+    ["Station",1,stationId],
+    [],
+    headers,
+    row
+  ];
+}
+function weatherAOA(){
+  const d=startDate();
+  const id=weatherProjectCode();
+  const windId=(document.getElementById("windInstrumentId").value||"B7.").trim();
+  return [
+    ["C.E.C.I.",windId,"","",id],
+    ["","26700 SERIES","TRANSLATOR"],
+    ["NUMBER OF","RECORD",1],
+    ["FIELDS","PER","RECORD",9],
+    ["","DATE","DATE","DATE","TIME","TIME","WS","WD","TEMP","RH"],
+    ["","MON","DAY","YEAR","HR","MIN","W/S","DEG","C","%"],
+    ["",d.getMonth()+1,d.getDate(),d.getFullYear()%100,d.getHours(),d.getMinutes(),Number(row[5]),Number(row[6]),Number(row[7]),Number(row[8])],
+    ["END"]
+  ];
+}
+function saveExcel(aoa,sheetName,fileName,widths){
+  const ws=XLSX.utils.aoa_to_sheet(aoa);
+  ws["!cols"]=widths.map(w=>({wch:w}));
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,sheetName);
+  XLSX.writeFile(wb,fileName);
+}
+function downloadAirExcel(){
+  if(!ensure())return;
+  const d=startDate();
+  const code=airProjectCode();
+  saveExcel(airAOA(),"空氣資料",`${code}.xlsx`,[8.08,8.08,8.08,8.08,8.08,8.08,8.08,8.08,8.08,8.08,8.08,8.08,8.08]);
+}
+function downloadWeatherExcel(){
+  if(!ensure())return;
+  const d=startDate();
+  const code=weatherProjectCode();
+  saveExcel(weatherAOA(),"天氣資料",`${code}.xlsx`,[8.08,8.08,8.08,8.08,8.08,8.08,8.08,8.08,8.08,8.08]);
+}
+
+function downloadAll(){
+  if(!ensure())return;
+  downloadAirExcel();
+  setTimeout(downloadWeatherExcel,450);
+  document.getElementById("status").innerHTML='<span class="ok">已開始下載空氣 Excel 與天氣 Excel。</span>';
+}
+function clearData(){
+  row=null;finishTime=null;render();
+  document.getElementById("status").textContent="資料已清除。";
+}
+function init(){
+  const d=new Date();d.setMinutes(0,0,0);
+  document.getElementById("start").value=localValue(d);
+  document.getElementById("head").innerHTML=headers.map(h=>`<th>${h}</th>`).join("");
+}
+init();
+</script>
+</body>
+</html>
