@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>PM10 一小時雙 Excel 助手 V11 Beta 1</title>
+<title>PM10 一小時雙 Excel 助手 V11 Beta 2</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
 :root{
@@ -99,7 +99,7 @@ th:first-child,td:first-child{text-align:left}
 </head>
 <body>
 <div class="wrap">
-  <div class="title">PM10 一小時雙 Excel 助手 V11 Beta 1</div>
+  <div class="title">PM10 一小時雙 Excel 助手 V11 Beta 2</div>
   <div class="sub">固定產生一小時一筆資料；只下載空氣 Excel 與天氣 Excel。</div>
 
   <div class="card">
@@ -109,7 +109,7 @@ th:first-child,td:first-child{text-align:left}
         <div class="project-row">
           <div>
             <label>專案</label>
-            <input id="project" value="09009" maxlength="5" inputmode="numeric">
+            <input id="project" value="" maxlength="5" inputmode="numeric">
           </div>
           <div>
             <label>類別</label>
@@ -143,7 +143,7 @@ th:first-child,td:first-child{text-align:left}
       <div><label>流量基準（lpm）</label><input id="flowBase" type="number" step="0.01" value="16.62"></div>
 
       <div><label>溫度基準值（℃）</label><input id="tempBase" type="number" step="0.1" value="30"></div>
-      <div><label>濕度基準值（%）</label><input id="rhBase" type="number" step="1" value="72"></div>
+      <div><label>濕度基準值（%）</label><input id="rhBase" type="number" step="1" value="60"></div>
       <div><label>氣壓基準值（mmHg）</label><input id="bpBase" type="number" step="0.1" value="756"></div>
 
       <div><label>風速基準值（m/s）</label><input id="wsBase" type="number" step="0.1" value="2.5"></div>
@@ -174,8 +174,8 @@ th:first-child,td:first-child{text-align:left}
   <div class="card">
     <div class="note">
       每次固定產生兩個檔案：空氣 Excel、天氣 Excel。<br>
-      專案標號以「09009　A / R　001－01」方式輸入；空氣自動為 XXXXXAXXX-XX，天氣自動為 XXXXXRXXX-XX。<br>
-      空氣與天氣 Excel 欄寬固定為 8.08；空氣完成時間為資料時間加隨機 1～2 分鐘，再加隨機秒數。
+      專案欄預設空白；輸入後以「09009　A / R　001－01」方式組合；空氣自動為 XXXXXAXXX-XX，天氣自動為 XXXXXRXXX-XX。<br>
+      空氣與天氣 Excel 欄寬固定為 8.08；空氣完成時間為資料時間加隨機 1～2 分鐘，再加隨機 0～59 秒。
     </div>
   </div>
 
@@ -243,18 +243,22 @@ function generate(){
     const ft=at+rnd(6,9);
     const frh=Math.max(10,Math.round(rh-rnd(15,28)));
 
+    const concRT=pm;
+    const concHR=clamp(concRT+rnd(-0.8,0.8),pmMin,pmMax);
+    const concS=clamp((concRT+concHR)/2+rnd(-0.5,0.5),pmMin,pmMax);
+
     row=[
       fmtDate(d),
-      fixed(pm/1000,4),
-      fixed(Math.max(pmMin,Math.min(pmMax,pm+rnd(-1.2,1.2)))/1000,4),
-      fixed(Math.max(pmMin,Math.min(pmMax,pm+rnd(-2,2)))/1000,4),
+      fixed(concRT/1000,4),
+      fixed(concHR/1000,4),
+      fixed(concS/1000,4),
       fixed(flow,2),trim(ws,1),String(wd),trim(at,1),String(rh),
       trim(bp,1),trim(ft,1),String(frh),"0"
     ];
 
     finishTime=new Date(d.getTime());
     finishTime.setMinutes(finishTime.getMinutes()+(Math.random()<0.5?1:2));
-    finishTime.setSeconds(Math.floor(Math.random()*59)+1);
+    finishTime.setSeconds(Math.floor(Math.random()*60));
 
     render();
     document.getElementById("status").innerHTML=`<span class="ok">完成：已產生一小時一筆資料。空氣報表時間為 ${fmtDateSec(finishTime)}。</span>`;
