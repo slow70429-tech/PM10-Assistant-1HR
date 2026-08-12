@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>PM10 一小時雙 Excel 助手 V11 正式版</title>
+<title>PM10 一小時雙 Excel 助手 V12 三格式版</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <style>
@@ -100,7 +100,7 @@ th:first-child,td:first-child{text-align:left}
 </head>
 <body>
 <div class="wrap">
-  <div class="title">PM10 一小時雙 Excel 助手 V11 正式版</div>
+  <div class="title">PM10 一小時雙 Excel 助手 V12 三格式版</div>
   <div class="sub">固定產生一小時一筆資料；只下載空氣 Excel 與天氣 Excel。</div>
 
   <div class="card">
@@ -131,7 +131,8 @@ th:first-child,td:first-child{text-align:left}
       <div>
         <label>空氣格式</label>
         <select id="airFormat">
-          <option value="datareport" selected>Data Report（新版）</option>
+          <option value="d11703" selected>新版 D11703（mg/m³）</option>
+          <option value="d11710">新版 D11710（µg/m³）</option>
           <option value="automet">AutoMet（舊版）</option>
         </select>
       </div>
@@ -176,7 +177,8 @@ th:first-child,td:first-child{text-align:left}
     <div class="note">
       每次固定產生兩個檔案：所選格式的空氣 Excel、天氣 Excel。<br>
       專案欄預設空白；次數會完全依輸入內容保留位數，例如 1、01、001 都不補碼；空氣與天氣檔名同步使用相同次數。<br>
-      空氣格式可切換 Data Report（新版）或 AutoMet（舊版）；Flow 初始為 16.67 lpm 且可修改。空氣完成時間為資料時間加隨機 1～2 分鐘，再加隨機 0～59 秒。
+      空氣格式可切換新版 D11703、新版 D11710 或 AutoMet（舊版）；Flow 初始為 16.67 lpm 且可修改。空氣完成時間為資料時間加隨機 1～2 分鐘，再加隨機 0～59 秒。<br>
+       三種空氣 Excel 與天氣 Excel 皆預設 A4、直向、標準邊界，並縮放為「將工作表放入單一頁面」。
     </div>
   </div>
 
@@ -201,6 +203,20 @@ function fmtDateSec(d){return `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate(
 function fmtAutoMetDate(d){
   const months=["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
   return `${pad(d.getDate())}-${months[d.getMonth()]}-${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+function fmtD11710Date(d){
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+function signedFixed(value,integerDigits,decimals){
+  const n=Number(value);
+  const sign=n<0?"-":"+";
+  const abs=Math.abs(n).toFixed(decimals);
+  let [a,b]=abs.split(".");
+  a=a.padStart(integerDigits,"0");
+  return sign+a+(decimals?"."+b:"");
+}
+function zeroPadInt(value,digits){
+  return String(Math.max(0,Math.round(Number(value)))).padStart(digits,"0");
 }
 function getAirFormat(){
   return document.getElementById("airFormat").value;
@@ -352,12 +368,40 @@ function weatherProjectCode(){
   return `${p.project}R${p.round}-${p.point}`;
 }
 
-function dataReportAOA(){
-  const stationId=document.getElementById("stationId").value.trim()||"A22113";
+function dataReportAOA(format=getAirFormat()){
+  if(format==="d11710"){
+    const d=startDate();
+    const headers11710=["Time","ConcRT(ug/m3)","ConcHR(ug/m3)","ConcS(ug/m3)","Flow(lpm)","WS(m/s)","WD(Deg)","AT(C)","RH(%)","BP(mmHg)","FT(C)","FRH(%)","Status"];
+    const row11710=[
+      fmtD11710Date(d),
+      signedFixed(Number(row[1])*1000,5,1),
+      signedFixed(Number(row[2])*1000,5,1),
+      signedFixed(Number(row[3])*1000,5,1),
+      signedFixed(Number(row[4]),2,2),
+      String(Number(row[5]).toFixed(1)).padStart(4,"0"),
+      zeroPadInt(row[6],3),
+      signedFixed(Number(row[7]),3,1),
+      zeroPadInt(row[8],3),
+      Number(row[9]).toFixed(1),
+      signedFixed(Number(row[10]),3,1),
+      zeroPadInt(row[11],3),
+      "00000"
+    ];
+    return [
+      ["Data Report"],
+      [fmtD11710Date(finishTime)],
+      ["Station"," 1"," D11710"],
+      [],
+      headers11710,
+      row11710
+    ];
+  }
+
+  // D11703：依使用者提供的新版本 CSV 樣式（mg/m³、日期不含秒）。
   return [
     ["Data Report"],
-    [fmtDateSec(finishTime)],
-    ["Station",1,stationId],
+    [fmtDate(finishTime)],
+    ["Station",1," D11703"],
     [],
     headers,
     row
@@ -383,8 +427,9 @@ function autoMetAOA(){
 }
 
 function airAOA(){
-  return getAirFormat()==="automet" ? autoMetAOA() : dataReportAOA();
+  return getAirFormat()==="automet" ? autoMetAOA() : dataReportAOA(getAirFormat());
 }
+
 function weatherAOA(){
   const d=startDate();
   const id=weatherProjectCode();
@@ -400,12 +445,45 @@ function weatherAOA(){
     ["END"]
   ];
 }
-function saveExcel(aoa,sheetName,fileName,widths){
+function setSinglePagePrintXml(sheetXml){
+  // Excel：A4、直向、標準邊界，縮放為「將工作表放入單一頁面」。
+  if(/<sheetPr[\s>]/.test(sheetXml)){
+    if(/<pageSetUpPr\b/.test(sheetXml)){
+      sheetXml=sheetXml.replace(/<pageSetUpPr\b[^>]*\/?>(?:<\/pageSetUpPr>)?/,'<pageSetUpPr fitToPage="1"/>');
+    }else if(/<sheetPr\b[^>]*\/>/.test(sheetXml)){
+      sheetXml=sheetXml.replace(/<sheetPr\b([^>]*)\/>/, '<sheetPr$1><pageSetUpPr fitToPage="1"/></sheetPr>');
+    }else{
+      sheetXml=sheetXml.replace(/<sheetPr\b[^>]*>/, m=>m+'<pageSetUpPr fitToPage="1"/>');
+    }
+  }else{
+    sheetXml=sheetXml.replace(/(<worksheet\b[^>]*>)/,'$1<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>');
+  }
+
+  const margins='<pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/>';
+  const setup='<pageSetup paperSize="9" orientation="portrait" fitToWidth="1" fitToHeight="1"/>';
+  if(/<pageMargins\b[^>]*\/>/.test(sheetXml)) sheetXml=sheetXml.replace(/<pageMargins\b[^>]*\/>/,margins);
+  else sheetXml=sheetXml.replace(/<\/worksheet>/,margins+'</worksheet>');
+  if(/<pageSetup\b[^>]*\/>/.test(sheetXml)) sheetXml=sheetXml.replace(/<pageSetup\b[^>]*\/>/,setup);
+  else sheetXml=sheetXml.replace(/<\/worksheet>/,setup+'</worksheet>');
+  return sheetXml;
+}
+
+async function saveExcel(aoa,sheetName,fileName,widths){
+  if(typeof JSZip==="undefined") throw new Error("Excel 列印設定元件尚未載入，請確認網路後重新開啟。");
   const ws=XLSX.utils.aoa_to_sheet(aoa);
   ws["!cols"]=widths.map(w=>({wch:w}));
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,sheetName);
-  XLSX.writeFile(wb,fileName);
+  const bytes=XLSX.write(wb,{bookType:"xlsx",type:"array"});
+  const zip=await JSZip.loadAsync(bytes);
+  let sheet=await zip.file("xl/worksheets/sheet1.xml").async("string");
+  sheet=setSinglePagePrintXml(sheet);
+  zip.file("xl/worksheets/sheet1.xml",sheet);
+  const blob=await zip.generateAsync({type:"blob",mimeType:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+  const a=document.createElement("a");
+  const url=URL.createObjectURL(blob);
+  a.href=url;a.download=fileName;document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1500);
 }
 
 function excelSerial(d){
@@ -463,6 +541,7 @@ async function downloadAutoMetFromOriginalTemplate(){
   ];
   "ABCDEFGHIJKLM".split("").forEach((col,i)=>{r6=replaceNumericCell(r6,`${col}6`,nums[i]);});
   sheet=sheet.replace(row6Match[0],r6);
+  sheet=setSinglePagePrintXml(sheet);
   zip.file("xl/worksheets/sheet1.xml",sheet);
 
   const blob=await zip.generateAsync({type:"blob",mimeType:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
@@ -485,19 +564,19 @@ async function downloadAirExcel(){
     }
     return;
   }
-  saveExcel(dataReportAOA(),"Data Report",`${code}.xlsx`,[8.08,8.08,8.08,8.08,8.08,8.08,8.08,8.08,8.08,8.08,8.08,8.08,8.08]);
+  const fmt=getAirFormat();
+  await saveExcel(dataReportAOA(fmt),"Data Report",`${code}.xlsx`,[8.08,8.08,8.08,8.08,8.08,8.08,8.08,8.08,8.08,8.08,8.08,8.08,8.08]);
 }
-function downloadWeatherExcel(){
+async function downloadWeatherExcel(){
   if(!ensure())return;
-  const d=startDate();
   const code=weatherProjectCode();
-  saveExcel(weatherAOA(),"天氣資料",`${code}.xlsx`,[8.08,8.08,8.08,8.08,8.08,8.08,8.08,8.08,8.08,8.08]);
+  await saveExcel(weatherAOA(),"天氣資料",`${code}.xlsx`,[8.08,8.08,8.08,8.08,8.08,8.08,8.08,8.08,8.08,8.08]);
 }
 
 async function downloadAll(){
   if(!ensure())return;
   await downloadAirExcel();
-  setTimeout(downloadWeatherExcel,450);
+  setTimeout(()=>{downloadWeatherExcel();},450);
   document.getElementById("status").innerHTML='<span class="ok">已開始下載空氣 Excel 與天氣 Excel。</span>';
 }
 function clearData(){
