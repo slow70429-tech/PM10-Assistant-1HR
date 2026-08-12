@@ -3,9 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>PM10 一小時雙 Excel 助手 V15 三格式版</title>
+<title>PM10 一小時雙 Excel 助手 V16 三格式版</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js"></script>
 <style>
 :root{
   --bg:#f4f7fb;
@@ -100,7 +101,7 @@ th:first-child,td:first-child{text-align:left}
 </head>
 <body>
 <div class="wrap">
-  <div class="title">PM10 一小時雙 Excel 助手 V15 三格式版</div>
+  <div class="title">PM10 一小時雙 Excel 助手 V16 三格式版</div>
   <div class="sub">固定產生一小時一筆資料；只下載空氣 Excel 與天氣 Excel。</div>
 
   <div class="card">
@@ -510,22 +511,43 @@ function setSinglePagePrintXml(sheetXml){
   return sheetXml;
 }
 
-async function saveExcel(aoa,sheetName,fileName,widths){
-  if(typeof JSZip==="undefined") throw new Error("Excel 列印設定元件尚未載入，請確認網路後重新開啟。");
+function downloadBlobNow(blob,fileName){
+  const a=document.createElement("a");
+  const url=URL.createObjectURL(blob);
+  a.href=url;
+  a.download=fileName;
+  a.style.display="none";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),2000);
+}
+function bytesToText(bytes){return new TextDecoder("utf-8").decode(bytes)}
+function textToBytes(text){return new TextEncoder().encode(text)}
+function base64ToBytes(b64){
+  const bin=atob(b64); const out=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) out[i]=bin.charCodeAt(i);
+  return out;
+}
+function zipWithSinglePagePrint(xlsxBytes){
+  // 改用 fflate「同步」處理 XLSX ZIP，避免 await 後瀏覽器取消下載手勢。
+  if(typeof fflate==="undefined") throw new Error("Excel 列印設定元件尚未載入，請重新整理後再試。");
+  const files=fflate.unzipSync(new Uint8Array(xlsxBytes));
+  const key="xl/worksheets/sheet1.xml";
+  if(!files[key]) throw new Error("Excel 工作表結構不存在。");
+  let sheet=bytesToText(files[key]);
+  sheet=setSinglePagePrintXml(sheet);
+  files[key]=textToBytes(sheet);
+  return fflate.zipSync(files,{level:6});
+}
+function saveExcel(aoa,sheetName,fileName,widths){
   const ws=XLSX.utils.aoa_to_sheet(aoa);
   ws["!cols"]=widths.map(w=>({wch:w}));
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,sheetName);
-  const bytes=XLSX.write(wb,{bookType:"xlsx",type:"array"});
-  const zip=await JSZip.loadAsync(bytes);
-  let sheet=await zip.file("xl/worksheets/sheet1.xml").async("string");
-  sheet=setSinglePagePrintXml(sheet);
-  zip.file("xl/worksheets/sheet1.xml",sheet);
-  const blob=await zip.generateAsync({type:"blob",mimeType:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
-  const a=document.createElement("a");
-  const url=URL.createObjectURL(blob);
-  a.href=url;a.download=fileName;document.body.appendChild(a);a.click();a.remove();
-  setTimeout(()=>URL.revokeObjectURL(url),1500);
+  const raw=XLSX.write(wb,{bookType:"xlsx",type:"array"});
+  const finalBytes=zipWithSinglePagePrint(raw);
+  downloadBlobNow(new Blob([finalBytes],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}),fileName);
 }
 
 function excelSerial(d){
@@ -551,27 +573,29 @@ function replaceNumericCell(rowXml,ref,value){
     return a+newBody+z;
   });
 }
-async function downloadAutoMetFromOriginalTemplate(){
-  if(typeof JSZip==="undefined") throw new Error("Excel 範本元件尚未載入，請確認網路後重新開啟。");
+function downloadAutoMetFromOriginalTemplate(){
+  if(typeof fflate==="undefined") throw new Error("Excel 範本元件尚未載入，請重新整理後再試。");
   const code=airProjectCode();
   const sn=document.getElementById("stationId").value.trim()||"X18029";
   const d=startDate();
   const values=window.autoMetRow;
-  const zip=await JSZip.loadAsync(AUTOMET_TEMPLATE_BASE64,{base64:true});
+  if(!values) throw new Error("請先產生資料。");
 
-  // 只替換範本內需要更新的文字；styles.xml 完全不重建，因此新細明體與原格式保持原樣。
-  let shared=await zip.file("xl/sharedStrings.xml").async("string");
+  const files=fflate.unzipSync(base64ToBytes(AUTOMET_TEMPLATE_BASE64));
+  const sharedKey="xl/sharedStrings.xml", workbookKey="xl/workbook.xml", sheetKey="xl/worksheets/sheet1.xml";
+  if(!files[sharedKey]||!files[workbookKey]||!files[sheetKey]) throw new Error("舊版 Excel 範本結構不完整。");
+
+  let shared=bytesToText(files[sharedKey]);
   shared=replaceSharedString(shared,2,sn);
   shared=replaceSharedString(shared,16,fmtAutoMetDate(finishTime));
   shared=replaceSharedString(shared,17,code);
-  zip.file("xl/sharedStrings.xml",shared);
+  files[sharedKey]=textToBytes(shared);
 
-  let workbook=await zip.file("xl/workbook.xml").async("string");
+  let workbook=bytesToText(files[workbookKey]);
   workbook=workbook.replace(/(<sheet\s+name=")[^"]*("\s+sheetId="1")/,`$1${escapeXml(code)}$2`);
-  zip.file("xl/workbook.xml",workbook);
+  files[workbookKey]=textToBytes(workbook);
 
-  let sheet=await zip.file("xl/worksheets/sheet1.xml").async("string");
-  // 一小時助手只留一筆：移除原始範本第 7～29 列舊資料，其餘空白列與版面設定不動。
+  let sheet=bytesToText(files[sheetKey]);
   sheet=sheet.replace(/<row\s+r="(?:[7-9]|1\d|2\d)"[^>]*>[\s\S]*?<\/row>/g,"");
   const row6Match=sheet.match(/<row\s+r="6"[^>]*>[\s\S]*?<\/row>/);
   if(!row6Match) throw new Error("舊版 Excel 範本找不到第 6 列資料列。");
@@ -584,22 +608,18 @@ async function downloadAutoMetFromOriginalTemplate(){
   "ABCDEFGHIJKLM".split("").forEach((col,i)=>{r6=replaceNumericCell(r6,`${col}6`,nums[i]);});
   sheet=sheet.replace(row6Match[0],r6);
   sheet=setSinglePagePrintXml(sheet);
-  zip.file("xl/worksheets/sheet1.xml",sheet);
+  files[sheetKey]=textToBytes(sheet);
 
-  const blob=await zip.generateAsync({type:"blob",mimeType:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
-  const a=document.createElement("a");
-  a.href=URL.createObjectURL(blob);
-  a.download=`${code}.xlsx`;
-  document.body.appendChild(a);a.click();a.remove();
-  setTimeout(()=>URL.revokeObjectURL(a.href),1500);
+  const finalBytes=fflate.zipSync(files,{level:6});
+  downloadBlobNow(new Blob([finalBytes],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}),`${code}.xlsx`);
 }
 
-async function downloadAirExcel(){
+function downloadAirExcel(){
   if(!ensure())return;
   const code=airProjectCode();
   if(getAirFormat()==="automet"){
     try{
-      await downloadAutoMetFromOriginalTemplate();
+      downloadAutoMetFromOriginalTemplate();
     }catch(e){
       alert(e.message);
       document.getElementById("status").innerHTML=`<span class="warn">錯誤：${e.message}</span>`;
@@ -607,17 +627,27 @@ async function downloadAirExcel(){
     return;
   }
   const fmt=getAirFormat();
-  await saveExcel(dataReportAOA(fmt),"Data Report",`${code}.xlsx`,[8.08,8.08,8.08,8.08,8.08,8.08,8.08,8.08,8.08,8.08,8.08,8.08,8.08]);
+  try{
+    saveExcel(dataReportAOA(fmt),"Data Report",`${code}.xlsx`,[8.08,8.08,8.08,8.08,8.08,8.08,8.08,8.08,8.08,8.08,8.08,8.08,8.08]);
+  }catch(e){
+    alert(e.message);
+    document.getElementById("status").innerHTML=`<span class="warn">下載錯誤：${e.message}</span>`;
+  }
 }
-async function downloadWeatherExcel(){
+function downloadWeatherExcel(){
   if(!ensure())return;
   const code=weatherProjectCode();
-  await saveExcel(weatherAOA(),"天氣資料",`${code}.xlsx`,[8.08,8.08,8.08,8.08,8.08,8.08,8.08,8.08,8.08,8.08]);
+  try{
+    saveExcel(weatherAOA(),"天氣資料",`${code}.xlsx`,[8.08,8.08,8.08,8.08,8.08,8.08,8.08,8.08,8.08,8.08]);
+  }catch(e){
+    alert(e.message);
+    document.getElementById("status").innerHTML=`<span class="warn">下載錯誤：${e.message}</span>`;
+  }
 }
 
-async function downloadAll(){
+function downloadAll(){
   if(!ensure())return;
-  await downloadAirExcel();
+  downloadAirExcel();
   setTimeout(()=>{downloadWeatherExcel();},450);
   document.getElementById("status").innerHTML='<span class="ok">已開始下載空氣 Excel 與天氣 Excel。</span>';
 }
