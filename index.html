@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>PM10 一小時雙 Excel 助手 V13 三格式版</title>
+<title>PM10 一小時雙 Excel 助手 V14 三格式版</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <style>
@@ -100,7 +100,7 @@ th:first-child,td:first-child{text-align:left}
 </head>
 <body>
 <div class="wrap">
-  <div class="title">PM10 一小時雙 Excel 助手 V13 三格式版</div>
+  <div class="title">PM10 一小時雙 Excel 助手 V14 三格式版</div>
   <div class="sub">固定產生一小時一筆資料；只下載空氣 Excel 與天氣 Excel。</div>
 
   <div class="card">
@@ -130,7 +130,7 @@ th:first-child,td:first-child{text-align:left}
 
       <div>
         <label>空氣格式</label>
-        <select id="airFormat">
+        <select id="airFormat" onchange="render()">
           <option value="d11703" selected>新版 D11703（mg/m³）</option>
           <option value="d11710">新版 D11710（µg/m³）</option>
           <option value="automet">AutoMet（舊版）</option>
@@ -333,15 +333,55 @@ function generate(){
     alert(e.message);
   }
 }
+function previewForCurrentFormat(){
+  if(!window.generatedValues) return {headers, values:null};
+  const f=getAirFormat();
+  const g=window.generatedValues;
+
+  if(f==="d11710"){
+    return {
+      headers:["Time","ConcRT(ug/m3)","ConcHR(ug/m3)","ConcS(ug/m3)","Flow(lpm)","WS(m/s)","WD(Deg)","AT(C)","RH(%)","BP(mmHg)","FT(C)","FRH(%)","Status"],
+      values:[
+        fmtD11710Date(g.date),
+        signedFixed(g.concRT,5,1),
+        signedFixed(g.concHR,5,1),
+        signedFixed(g.concS,5,1),
+        signedFixed(g.flow,2,2),
+        String(Number(g.ws).toFixed(1)).padStart(4,"0"),
+        zeroPadInt(g.wd,3),
+        signedFixed(g.at,3,1),
+        zeroPadInt(g.rh,3),
+        Number(g.bp).toFixed(1),
+        signedFixed(g.ft,3,1),
+        zeroPadInt(g.frh,3),
+        "00000"
+      ]
+    };
+  }
+
+  if(f==="automet"){
+    return {
+      headers:["Time","ConcRT(mg/m3)","ConcHr(mg/m3)","Flow(l/m)","WS(m/s)","WD(Deg)","AT(C)","RHx(%)","RHi(%)","BV(V)","FT(C)","Alarm","Type"],
+      values:window.autoMetRow
+    };
+  }
+
+  return {headers, values:row};
+}
+
 function render(){
-  document.getElementById("body").innerHTML=row?`<tr>${row.map(v=>`<td>${v}</td>`).join("")}</tr>`:"";
-  if(row){
-    document.getElementById("pmK").textContent=(Number(row[1])*1000).toFixed(1);
-    document.getElementById("tK").textContent=row[7];
-    document.getElementById("rhK").textContent=row[8];
-    document.getElementById("bpK").textContent=row[9];
-    document.getElementById("wsK").textContent=row[5];
-    document.getElementById("wdK").textContent=row[6];
+  const p=previewForCurrentFormat();
+  document.getElementById("head").innerHTML=p.headers.map(h=>`<th>${h}</th>`).join("");
+  document.getElementById("body").innerHTML=p.values?`<tr>${p.values.map(v=>`<td>${v}</td>`).join("")}</tr>`:"";
+
+  const g=window.generatedValues;
+  if(g){
+    document.getElementById("pmK").textContent=Number(g.concRT).toFixed(1);
+    document.getElementById("tK").textContent=trim(g.at,1);
+    document.getElementById("rhK").textContent=String(g.rh);
+    document.getElementById("bpK").textContent=trim(g.bp,1);
+    document.getElementById("wsK").textContent=trim(g.ws,1);
+    document.getElementById("wdK").textContent=String(g.wd);
   }else{
     ["pmK","tK","rhK","bpK","wsK","wdK"].forEach(id=>document.getElementById(id).textContent="—");
   }
@@ -606,7 +646,7 @@ function clearData(){
 function init(){
   const d=new Date();d.setMinutes(0,0,0);
   document.getElementById("start").value=localValue(d);
-  document.getElementById("head").innerHTML=headers.map(h=>`<th>${h}</th>`).join("");
+  render();
 }
 init();
 </script>
