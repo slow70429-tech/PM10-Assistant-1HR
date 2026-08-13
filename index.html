@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>PM10 一小時雙 Excel 助手 V16 三格式版</title>
+<title>PM10 一小時雙 Excel 助手 V17 三格式版</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js"></script>
@@ -101,7 +101,7 @@ th:first-child,td:first-child{text-align:left}
 </head>
 <body>
 <div class="wrap">
-  <div class="title">PM10 一小時雙 Excel 助手 V16 三格式版</div>
+  <div class="title">PM10 一小時雙 Excel 助手 V17 三格式版</div>
   <div class="sub">固定產生一小時一筆資料；只下載空氣 Excel 與天氣 Excel。</div>
 
   <div class="card">
@@ -139,7 +139,13 @@ th:first-child,td:first-child{text-align:left}
       </div>
       <div><label>資料日期與時間</label><input id="start" type="datetime-local"></div>
       <div><label>空氣儀器編號／SN</label><input id="stationId" value="A22113"></div>
-      <div><label>風速儀器編號</label><input id="windInstrumentId" value="B7."></div>
+      <div><label>風速儀器編號</label><select id="windInstrumentId">
+        <option value="B7" selected>B7</option>
+        <option value="B8">B8</option>
+        <option value="B9">B9</option>
+        <option value="B10">B10</option>
+        <option value="B11">B11</option>
+      </select></div>
 
       <div><label>PM10 最小值（µg/m³）</label><input id="pmMin" type="number" step="0.1" value="30"></div>
       <div><label>PM10 最大值（µg/m³）</label><input id="pmMax" type="number" step="0.1" value="38"></div>
@@ -178,7 +184,7 @@ th:first-child,td:first-child{text-align:left}
     <div class="note">
       每次固定產生兩個檔案：所選格式的空氣 Excel、天氣 Excel。<br>
       專案欄預設空白；次數會完全依輸入內容保留位數，例如 1、01、001 都不補碼；空氣與天氣檔名同步使用相同次數。<br>
-      空氣格式可切換新版 D11703、新版 D11710 或 AutoMet（舊版）；Flow 初始為 16.67 lpm 且可修改。空氣完成時間為資料時間加隨機 1～2 分鐘，再加隨機 0～59 秒。<br>
+      空氣格式可切換新版 D11703、新版 D11710 或 AutoMet（舊版）；風速儀器可選 B7～B11；Flow 初始為 16.67 lpm 且可修改。空氣完成時間為資料時間加隨機 1～2 分鐘，再加隨機 0～59 秒。<br>
        三種空氣 Excel 與天氣 Excel 皆預設 A4、直向、標準邊界，並縮放為「將工作表放入單一頁面」。
     </div>
   </div>
@@ -343,7 +349,7 @@ function previewData(){
   }
   if(fmt==="d11710") {
     const aoa=dataReportAOA("d11710");
-    return {headers:aoa[4],values:aoa[5]};
+    return {headers:aoa[5],values:aoa[6]};
   }
   if(fmt==="automet") {
     return {
@@ -400,27 +406,28 @@ function dataReportAOA(format=getAirFormat()){
     const g=window.generatedValues;
     if(!g) throw new Error("請先產生資料。");
     const headers11710=["Time","ConcRT(ug/m3)","ConcHR(ug/m3)","ConcS(ug/m3)","Flow(lpm)","WS(m/s)","WD(Deg)","AT(C)","RH(%)","BP(mmHg)","FT(C)","FRH(%)","Status"];
-    // D11710 的濃度單位是 µg/m³，因此直接輸出 30～38 這類 µg/m³ 數值，
-    // 而不是 D11703 的 0.030～0.038 mg/m³。
+    // D11710 原始 Excel：濃度使用 µg/m³ 的一般數值，不加 + 號或前置 0。
     const row11710=[
-      fmtD11710Date(g.date),
-      signedFixed(g.concRT,5,1),
-      signedFixed(g.concHR,5,1),
-      signedFixed(g.concS,5,1),
-      signedFixed(g.flow,2,2),
-      String(Number(g.ws).toFixed(1)).padStart(4,"0"),
-      zeroPadInt(g.wd,3),
-      signedFixed(g.at,3,1),
-      zeroPadInt(g.rh,3),
-      Number(g.bp).toFixed(1),
-      signedFixed(g.ft,3,1),
-      zeroPadInt(g.frh,3),
-      "00000"
+      fmtDate(g.date),
+      Number(g.concRT.toFixed(1)),
+      Number(g.concHR.toFixed(1)),
+      Number(g.concS.toFixed(1)),
+      Number(g.flow.toFixed(2)),
+      Number(g.ws.toFixed(1)),
+      Number(g.wd),
+      Number(g.at.toFixed(1)),
+      Number(g.rh),
+      Number(g.bp.toFixed(1)),
+      Number(g.ft.toFixed(1)),
+      Number(g.frh),
+      0
     ];
+    // 原始 D11710 檔案第 1 列為空白；Data Report 從第 2 列開始。
     return [
+      [],
       ["Data Report"],
-      [fmtD11710Date(finishTime)],
-      ["Station"," 1"," D11710"],
+      [fmtDateSec(finishTime)],
+      ["Station",1," D11710"],
       [],
       headers11710,
       row11710
@@ -463,7 +470,7 @@ function airAOA(){
 function weatherAOA(){
   const d=startDate();
   const id=weatherProjectCode();
-  const windId=(document.getElementById("windInstrumentId").value||"B7.").trim();
+  const windId=(document.getElementById("windInstrumentId").value||"B7").trim();
   return [
     ["C.E.C.I.",windId,"","",id],
     ["","26700 SERIES","TRANSLATOR"],
