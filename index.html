@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>PM10 一小時雙 Excel 助手 V17 三格式版</title>
+<title>PM10 一小時雙 Excel 助手 V18 三格式版</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js"></script>
@@ -101,7 +101,7 @@ th:first-child,td:first-child{text-align:left}
 </head>
 <body>
 <div class="wrap">
-  <div class="title">PM10 一小時雙 Excel 助手 V17 三格式版</div>
+  <div class="title">PM10 一小時雙 Excel 助手 V18 三格式版</div>
   <div class="sub">固定產生一小時一筆資料；只下載空氣 Excel 與天氣 Excel。</div>
 
   <div class="card">
@@ -133,7 +133,7 @@ th:first-child,td:first-child{text-align:left}
         <label>空氣格式</label>
         <select id="airFormat">
           <option value="d11703" selected>新版 D11703（mg/m³）</option>
-          <option value="d11710">新版 D11710（µg/m³）</option>
+          <option value="d11710">新版 D11710（mg/m³）</option>
           <option value="automet">AutoMet（舊版）</option>
         </select>
       </div>
@@ -147,8 +147,8 @@ th:first-child,td:first-child{text-align:left}
         <option value="B11">B11</option>
       </select></div>
 
-      <div><label>PM10 最小值（µg/m³）</label><input id="pmMin" type="number" step="0.1" value="30"></div>
-      <div><label>PM10 最大值（µg/m³）</label><input id="pmMax" type="number" step="0.1" value="38"></div>
+      <div><label>PM10 最小值（mg/m³）</label><input id="pmMin" type="number" step="0.0001" value="0.0300"></div>
+      <div><label>PM10 最大值（mg/m³）</label><input id="pmMax" type="number" step="0.0001" value="0.0380"></div>
       <div><label>流量（lpm）</label><input id="flowBase" type="number" step="0.01" value="16.67"></div>
 
       <div><label>溫度基準值（℃）</label><input id="tempBase" type="number" step="0.1" value="30"></div>
@@ -171,7 +171,7 @@ th:first-child,td:first-child{text-align:left}
     <div id="status" class="status">尚未產生資料。</div>
 
     <div class="kpis">
-      <div class="kpi"><b id="pmK">—</b><span>PM10 µg/m³</span></div>
+      <div class="kpi"><b id="pmK">—</b><span>PM10 mg/m³</span></div>
       <div class="kpi"><b id="tK">—</b><span>溫度 ℃</span></div>
       <div class="kpi"><b id="rhK">—</b><span>濕度 %</span></div>
       <div class="kpi"><b id="bpK">—</b><span>氣壓 mmHg</span></div>
@@ -184,7 +184,7 @@ th:first-child,td:first-child{text-align:left}
     <div class="note">
       每次固定產生兩個檔案：所選格式的空氣 Excel、天氣 Excel。<br>
       專案欄預設空白；次數會完全依輸入內容保留位數，例如 1、01、001 都不補碼；空氣與天氣檔名同步使用相同次數。<br>
-      空氣格式可切換新版 D11703、新版 D11710 或 AutoMet（舊版）；風速儀器可選 B7～B11；Flow 初始為 16.67 lpm 且可修改。空氣完成時間為資料時間加隨機 1～2 分鐘，再加隨機 0～59 秒。<br>
+      空氣格式可切換新版 D11703、新版 D11710 或 AutoMet（舊版）；D11703 / D11710 濃度皆為 mg/m³、固定小數 4 位；風速儀器可選 B7～B11；Flow 初始為 16.67 lpm 且可修改。空氣完成時間為資料時間加隨機 1～2 分鐘，再加隨機 0～59 秒。<br>
        三種空氣 Excel 與天氣 Excel 皆預設 A4、直向、標準邊界，並縮放為「將工作表放入單一頁面」。
     </div>
   </div>
@@ -279,11 +279,11 @@ function generate(){
     const frh=Math.max(10,Math.round(rh-rnd(15,28)));
 
     const concRT=pm;
-    // ConcRT 與 ConcHR 保留明顯但自然的小差距。
-    // 預設 PM10 範圍 30～38 時，兩者約相差 2～4 µg/m³（即 0.002～0.004 mg/m³）。
+    // ConcRT 與 ConcHR 保留明顯但自然的小差距（單位 mg/m³）。
+    // 預設 0.0300～0.0380 時，差距約 0.0020～0.0040 mg/m³。
     const pmSpan=pmMax-pmMin;
-    const gapMin=Math.min(2,pmSpan*0.25);
-    const gapMax=Math.min(4,pmSpan*0.5);
+    const gapMin=Math.min(0.002,pmSpan*0.25);
+    const gapMax=Math.min(0.004,pmSpan*0.5);
     const concGap=rnd(gapMin,gapMax);
     const canUp=concRT+concGap<=pmMax;
     const canDown=concRT-concGap>=pmMin;
@@ -297,17 +297,17 @@ function generate(){
     }else{
       concHR=clamp(concRT+(concRT<=(pmMin+pmMax)/2?concGap:-concGap),pmMin,pmMax);
     }
-    const concS=clamp((concRT+concHR)/2+rnd(-0.5,0.5),pmMin,pmMax);
+    const concS=clamp((concRT+concHR)/2+rnd(-0.0005,0.0005),pmMin,pmMax);
 
-    // 同一筆原始量測值先以實際單位保存；D11703 / D11710 輸出時各自轉換。
+    // 同一筆原始量測值直接以 mg/m³ 保存；D11703 / D11710 均輸出 4 位小數。
     window.generatedValues={concRT,concHR,concS,flow,ws,wd,at,rh,bp,ft,frh,date:d};
 
     // 畫面預覽維持 D11703 的 mg/m³ 顯示。
     row=[
       fmtDate(d),
-      fixed(concRT/1000,4),
-      fixed(concHR/1000,4),
-      fixed(concS/1000,4),
+      fixed(concRT,4),
+      fixed(concHR,4),
+      fixed(concS,4),
       fixed(flow,2),trim(ws,1),String(wd),trim(at,1),String(rh),
       trim(bp,1),trim(ft,1),String(frh),"0"
     ];
@@ -315,8 +315,8 @@ function generate(){
     // AutoMet 舊版使用的額外欄位。
     window.autoMetRow=[
       fmtDate(d),
-      fixed(concRT/1000,3),
-      fixed(concHR/1000,3),
+      fixed(concRT,4),
+      fixed(concHR,4),
       fixed(flow,2),
       trim(ws,1),
       String(wd),
@@ -343,7 +343,7 @@ function generate(){
 function previewData(){
   const fmt=getAirFormat();
   if(!row){
-    if(fmt==="d11710") return {headers:["Time","ConcRT(ug/m3)","ConcHR(ug/m3)","ConcS(ug/m3)","Flow(lpm)","WS(m/s)","WD(Deg)","AT(C)","RH(%)","BP(mmHg)","FT(C)","FRH(%)","Status"], values:null};
+    if(fmt==="d11710") return {headers:["Time","ConcRT(mg/m3)","ConcHR(mg/m3)","ConcS(mg/m3)","Flow(lpm)","WS(m/s)","WD(Deg)","AT(C)","RH(%)","BP(mmHg)","FT(C)","FRH(%)","Status"], values:null};
     if(fmt==="automet") return {headers:["Time","ConcRT(mg/m3)","ConcHr(mg/m3)","Flow(l/m)","WS(m/s)","WD(Deg)","AT(C)","RHx(%)","RHi(%)","BV(V)","FT(C)","Alarm","Type"], values:null};
     return {headers:headers,values:null};
   }
@@ -365,7 +365,7 @@ function render(){
   document.getElementById("head").innerHTML=p.headers.map(h=>`<th>${h}</th>`).join("");
   document.getElementById("body").innerHTML=p.values?`<tr>${p.values.map(v=>`<td>${v}</td>`).join("")}</tr>`:"";
   if(row){
-    document.getElementById("pmK").textContent=(Number(row[1])*1000).toFixed(1);
+    document.getElementById("pmK").textContent=Number(row[1]).toFixed(4);
     document.getElementById("tK").textContent=row[7];
     document.getElementById("rhK").textContent=row[8];
     document.getElementById("bpK").textContent=row[9];
@@ -405,13 +405,13 @@ function dataReportAOA(format=getAirFormat()){
   if(format==="d11710"){
     const g=window.generatedValues;
     if(!g) throw new Error("請先產生資料。");
-    const headers11710=["Time","ConcRT(ug/m3)","ConcHR(ug/m3)","ConcS(ug/m3)","Flow(lpm)","WS(m/s)","WD(Deg)","AT(C)","RH(%)","BP(mmHg)","FT(C)","FRH(%)","Status"];
-    // D11710 原始 Excel：濃度使用 µg/m³ 的一般數值，不加 + 號或前置 0。
+    const headers11710=["Time","ConcRT(mg/m3)","ConcHR(mg/m3)","ConcS(mg/m3)","Flow(lpm)","WS(m/s)","WD(Deg)","AT(C)","RH(%)","BP(mmHg)","FT(C)","FRH(%)","Status"];
+    // D11710：濃度使用 mg/m³，固定小數 4 位。
     const row11710=[
       fmtDate(g.date),
-      Number(g.concRT.toFixed(1)),
-      Number(g.concHR.toFixed(1)),
-      Number(g.concS.toFixed(1)),
+      Number(g.concRT.toFixed(4)),
+      Number(g.concHR.toFixed(4)),
+      Number(g.concS.toFixed(4)),
       Number(g.flow.toFixed(2)),
       Number(g.ws.toFixed(1)),
       Number(g.wd),
